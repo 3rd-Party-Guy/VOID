@@ -1042,29 +1042,36 @@ class VoidApp {
         }
       });
       
-      const hasMixedTextures = faceTextureIds.size !== selectedFaceCount || faceTextureIds.size > 1;
+      const allSameTexture = faceTextureIds.size === 1 && faceTextureIds.size === selectedFaceCount;
       
-      if (hasMixedTextures) {
-        currentTextureId = '---';
-        tt = { repeatX: '---', repeatY: '---', offsetX: '---', offsetY: '---', rotation: '---' };
-      } else if (faceTextureIds.size === 1) {
-        currentTextureId = Array.from(faceTextureIds)[0];
-        if (faceTransforms.length > 0) {
-          const first = faceTransforms[0];
-          const allSame = faceTransforms.every(t => 
-            t.repeatX === first.repeatX && 
-            t.repeatY === first.repeatY && 
-            t.offsetX === first.offsetX && 
-            t.offsetY === first.offsetY && 
-            t.rotation === first.rotation
-          );
-          tt = allSame ? first : { repeatX: '---', repeatY: '---', offsetX: '---', offsetY: '---', rotation: '---' };
-        } else {
-          tt = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
-        }
-      } else {
-        currentTextureId = '';
+      if (faceTransforms.length === 0) {
+        currentTextureId = faceTextureIds.size > 0 ? Array.from(faceTextureIds)[0] : '';
         tt = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+      } else if (allSameTexture) {
+        currentTextureId = Array.from(faceTextureIds)[0];
+        const first = faceTransforms[0];
+        const allSame = faceTransforms.every(t => 
+          t.repeatX === first.repeatX && 
+          t.repeatY === first.repeatY && 
+          t.offsetX === first.offsetX && 
+          t.offsetY === first.offsetY && 
+          t.rotation === first.rotation
+        );
+        tt = allSame ? first : { repeatX: '---', repeatY: '---', offsetX: '---', offsetY: '---', rotation: '---' };
+      } else {
+        currentTextureId = faceTextureIds.size > 1 ? '---' : (faceTextureIds.size === 1 ? Array.from(faceTextureIds)[0] : '');
+        const getCommonValue = (prop) => {
+          const values = faceTransforms.map(t => t[prop]);
+          const first = values[0];
+          return values.every(v => v === first) ? first : '---';
+        };
+        tt = {
+          repeatX: getCommonValue('repeatX'),
+          repeatY: getCommonValue('repeatY'),
+          offsetX: getCommonValue('offsetX'),
+          offsetY: getCommonValue('offsetY'),
+          rotation: getCommonValue('rotation')
+        };
       }
       textureTitle = `Face Texture (${selectedFaceCount} selected)`;
     } else if (this.mode !== 'face') {
