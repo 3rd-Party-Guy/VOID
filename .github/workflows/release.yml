@@ -33,8 +33,7 @@ jobs:
         shell: pwsh
         run: |
           $exe = Get-ChildItem -Path release -Filter "*.exe" -Recurse | Select-Object -First 1
-          echo "exe-path=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
-          echo "exe-name=$($exe.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          "exe-path=$($exe.FullName)", "exe-name=$($exe.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
