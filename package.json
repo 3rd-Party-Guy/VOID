@@ -19,7 +19,7 @@
     "usd",
     "electron"
   ],
-  "author": "",
+  "author": "Nikolay Hadzhiev <nikolayhadzhiev@outlook.com>",
   "license": "MIT",
   "devDependencies": {
     "canvas": "^3.2.1",
