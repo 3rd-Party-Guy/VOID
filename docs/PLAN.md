@@ -100,7 +100,7 @@
 - [x] Display texture in viewport
 - [x] Build properties panel texture slot
 - [x] Per-face texture support
-- [ ] Implement basic UV editor
+- [x] Implement basic UV editor (Ctrl+U to toggle, h/j/k/l to move, click to select)
 
 ### M10: USD Export
 

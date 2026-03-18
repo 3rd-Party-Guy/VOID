@@ -64,7 +64,7 @@ describe('M9: Texture System Tests', () => {
       store.setFaceTexture(obj.id, 0, texId);
       
       const updated = store.getObject(obj.id);
-      expect(updated.faceTextures.get(0)).toBe(texId);
+      expect(updated.faceTextures.get(0).textureId).toBe(texId);
     });
     
     test('setFaceTexture with null removes texture', () => {
@@ -76,6 +76,57 @@ describe('M9: Texture System Tests', () => {
       
       const updated = store.getObject(obj.id);
       expect(updated.faceTextures.has(0)).toBe(false);
+    });
+  });
+  
+  describe('Texture Transform', () => {
+    test('setObjectTextureTransform sets transform', () => {
+      const obj = store.addObject('cube', { geometry: createGeometry(GeometryTypes.CUBE) });
+      const texId = store.addTexture('test.png', 'data:image/png;base64,abc');
+      store.setObjectTexture(obj.id, texId);
+      
+      store.setObjectTextureTransform(obj.id, { repeatX: 2, repeatY: 3, offsetX: 0.1, offsetY: 0.2, rotation: 45 });
+      
+      const updated = store.getObject(obj.id);
+      expect(updated.textureTransform.repeatX).toBe(2);
+      expect(updated.textureTransform.repeatY).toBe(3);
+      expect(updated.textureTransform.offsetX).toBe(0.1);
+      expect(updated.textureTransform.offsetY).toBe(0.2);
+      expect(updated.textureTransform.rotation).toBe(45);
+    });
+    
+    test('setObjectTextureTransform creates undo entry', () => {
+      const obj = store.addObject('cube', { geometry: createGeometry(GeometryTypes.CUBE) });
+      const texId = store.addTexture('test.png', 'data:image/png;base64,abc');
+      store.setObjectTexture(obj.id, texId);
+      
+      store.setObjectTextureTransform(obj.id, { repeatX: 2, repeatY: 2, offsetX: 0, offsetY: 0, rotation: 0 });
+      
+      expect(store.canUndo()).toBe(true);
+    });
+    
+    test('undo restores texture transform', () => {
+      const obj = store.addObject('cube', { geometry: createGeometry(GeometryTypes.CUBE) });
+      const texId = store.addTexture('test.png', 'data:image/png;base64,abc');
+      store.setObjectTexture(obj.id, texId);
+      store.setObjectTextureTransform(obj.id, { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 });
+      store.setObjectTextureTransform(obj.id, { repeatX: 5, repeatY: 5, offsetX: 0, offsetY: 0, rotation: 90 });
+      store.undo();
+      
+      const updated = store.getObject(obj.id);
+      expect(updated.textureTransform.repeatX).toBe(1);
+    });
+    
+    test('setFaceTextureTransform sets face transform', () => {
+      const obj = store.addObject('cube', { geometry: createGeometry(GeometryTypes.CUBE) });
+      const texId = store.addTexture('test.png', 'data:image/png;base64,abc');
+      store.setFaceTexture(obj.id, 0, texId);
+      
+      store.setFaceTextureTransform(obj.id, 0, { repeatX: 3, repeatY: 3, offsetX: 0, offsetY: 0, rotation: 180 });
+      
+      const updated = store.getObject(obj.id);
+      expect(updated.faceTextures.get(0).transform.repeatX).toBe(3);
+      expect(updated.faceTextures.get(0).transform.rotation).toBe(180);
     });
   });
 });

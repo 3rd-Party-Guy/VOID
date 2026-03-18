@@ -7,6 +7,7 @@ export class Store {
     this.editingVertexIds = new Set();
     this.editingEdgeIds = new Set();
     this.editingFaceIds = new Set();
+    this.editingUvIds = new Set();
     this.textures = new Map(); // textureId -> { name, dataUrl }
     this.undoStack = [];
     this.redoStack = [];
@@ -41,6 +42,7 @@ export class Store {
       editingVertexIds: Array.from(this.editingVertexIds),
       editingEdgeIds: Array.from(this.editingEdgeIds),
       editingFaceIds: Array.from(this.editingFaceIds),
+      editingUvIds: Array.from(this.editingUvIds),
       canUndo: this.undoStack.length > 0,
       canRedo: this.redoStack.length > 0
     };
@@ -323,6 +325,55 @@ export class Store {
     this.notify();
   }
   
+  selectUv(objectId, uvIndex) {
+    this.editingUvIds.clear();
+    this.editingUvIds.add(`${objectId}:${uvIndex}`);
+    this.notify();
+  }
+  
+  toggleUvSelection(objectId, uvIndex) {
+    const key = `${objectId}:${uvIndex}`;
+    if (this.editingUvIds.has(key)) {
+      this.editingUvIds.delete(key);
+    } else {
+      this.editingUvIds.add(key);
+    }
+    this.notify();
+  }
+  
+  selectAllUvs(objectId) {
+    const obj = this.objects.get(objectId);
+    if (!obj || !obj.geometry) return;
+    
+    const count = obj.geometry.vertexCount || 0;
+    for (let i = 0; i < count; i++) {
+      this.editingUvIds.add(`${objectId}:${i}`);
+    }
+    this.notify();
+  }
+  
+  setUvPosition(objectId, uvIndex, u, v) {
+    const obj = this.objects.get(objectId);
+    if (!obj || !obj.geometry || !obj.geometry.uvs) return;
+    
+    const oldU = obj.geometry.uvs[uvIndex * 2];
+    const oldV = obj.geometry.uvs[uvIndex * 2 + 1];
+    
+    this._pushUndo({
+      type: 'SET_UV_POSITION',
+      objectId,
+      uvIndex,
+      oldU,
+      oldV,
+      newU: u,
+      newV: v
+    });
+    
+    obj.geometry.uvs[uvIndex * 2] = u;
+    obj.geometry.uvs[uvIndex * 2 + 1] = v;
+    this.notify();
+  }
+  
   addTexture(name, dataUrl) {
     const id = `tex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     this.textures.set(id, { id, name, dataUrl });
@@ -374,10 +425,48 @@ export class Store {
     });
     
     if (textureId) {
-      obj.faceTextures.set(faceIndex, textureId);
+      obj.faceTextures.set(faceIndex, { textureId });
     } else {
       obj.faceTextures.delete(faceIndex);
     }
+    this.notify();
+  }
+  
+  setObjectTextureTransform(objectId, transform) {
+    const obj = this.objects.get(objectId);
+    if (!obj) return;
+    
+    const oldTransform = obj.textureTransform || { scaleX: 1, scaleY: 1, rotation: 0, repeatX: 1, repeatY: 1 };
+    
+    this._pushUndo({
+      type: 'SET_OBJECT_TEXTURE_TRANSFORM',
+      objectId,
+      oldTransform: { ...oldTransform },
+      newTransform: { ...transform }
+    });
+    
+    obj.textureTransform = { ...transform };
+    this.notify();
+  }
+  
+  setFaceTextureTransform(objectId, faceIndex, transform) {
+    const obj = this.objects.get(objectId);
+    if (!obj || !obj.faceTextures) return;
+    
+    const faceData = obj.faceTextures.get(faceIndex);
+    if (!faceData) return;
+    
+    const oldTransform = faceData.transform || { scaleX: 1, scaleY: 1, rotation: 0, repeatX: 1, repeatY: 1 };
+    
+    this._pushUndo({
+      type: 'SET_FACE_TEXTURE_TRANSFORM',
+      objectId,
+      faceIndex,
+      oldTransform: { ...oldTransform },
+      newTransform: { ...transform }
+    });
+    
+    faceData.transform = { ...transform };
     this.notify();
   }
   
@@ -386,6 +475,7 @@ export class Store {
     this.editingVertexIds.clear();
     this.editingEdgeIds.clear();
     this.editingFaceIds.clear();
+    this.editingUvIds.clear();
     this.notify();
   }
   
@@ -431,6 +521,15 @@ export class Store {
         }
         break;
         
+      case 'SET_UV_POSITION': {
+        const uvObj = this.objects.get(action.objectId);
+        if (uvObj && uvObj.geometry && uvObj.geometry.uvs) {
+          uvObj.geometry.uvs[action.uvIndex * 2] = action.oldU;
+          uvObj.geometry.uvs[action.uvIndex * 2 + 1] = action.oldV;
+        }
+        break;
+      }
+        
       case 'SET_OBJECT_TEXTURE': {
         const texObj = this.objects.get(action.objectId);
         if (texObj) {
@@ -442,6 +541,14 @@ export class Store {
         break;
       }
         
+      case 'SET_OBJECT_TEXTURE_TRANSFORM': {
+        const transformObj = this.objects.get(action.objectId);
+        if (transformObj) {
+          transformObj.textureTransform = action.oldTransform;
+        }
+        break;
+      }
+        
       case 'SET_FACE_TEXTURE': {
         const faceObj = this.objects.get(action.objectId);
         if (faceObj) {
@@ -449,9 +556,20 @@ export class Store {
             faceObj.faceTextures = new Map();
           }
           if (action.oldTextureId) {
-            faceObj.faceTextures.set(action.faceIndex, action.oldTextureId);
+            faceObj.faceTextures.set(action.faceIndex, { textureId: action.oldTextureId });
           } else {
             faceObj.faceTextures.delete(action.faceIndex);
+          }
+        }
+        break;
+      }
+        
+      case 'SET_FACE_TEXTURE_TRANSFORM': {
+        const faceObj = this.objects.get(action.objectId);
+        if (faceObj && faceObj.faceTextures) {
+          const faceData = faceObj.faceTextures.get(action.faceIndex);
+          if (faceData) {
+            faceData.transform = action.oldTransform;
           }
         }
         break;
@@ -504,11 +622,28 @@ export class Store {
         }
         break;
         
+      case 'SET_UV_POSITION': {
+        const uvObj = this.objects.get(action.objectId);
+        if (uvObj && uvObj.geometry && uvObj.geometry.uvs) {
+          uvObj.geometry.uvs[action.uvIndex * 2] = action.newU;
+          uvObj.geometry.uvs[action.uvIndex * 2 + 1] = action.newV;
+        }
+        break;
+      }
+        
       case 'SET_OBJECT_TEXTURE': {
         const texObj = this.objects.get(action.objectId);
         if (texObj) {
           texObj.textureId = action.newTextureId;
           texObj.faceTextures = new Map();
+        }
+        break;
+      }
+        
+      case 'SET_OBJECT_TEXTURE_TRANSFORM': {
+        const transformObj = this.objects.get(action.objectId);
+        if (transformObj) {
+          transformObj.textureTransform = action.newTransform;
         }
         break;
       }
@@ -519,7 +654,22 @@ export class Store {
           if (!faceObj.faceTextures) {
             faceObj.faceTextures = new Map();
           }
-          faceObj.faceTextures.set(action.faceIndex, action.newTextureId);
+          if (action.newTextureId) {
+            faceObj.faceTextures.set(action.faceIndex, { textureId: action.newTextureId });
+          } else {
+            faceObj.faceTextures.delete(action.faceIndex);
+          }
+        }
+        break;
+      }
+        
+      case 'SET_FACE_TEXTURE_TRANSFORM': {
+        const faceObj = this.objects.get(action.objectId);
+        if (faceObj && faceObj.faceTextures) {
+          const faceData = faceObj.faceTextures.get(action.faceIndex);
+          if (faceData) {
+            faceData.transform = action.newTransform;
+          }
         }
         break;
       }

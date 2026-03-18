@@ -139,6 +139,12 @@ class VoidApp {
     
     this.updateSceneList();
     this.updateProperties();
+    
+    // Update UV editor if visible
+    const uvEditor = document.getElementById('uv-editor');
+    if (uvEditor && uvEditor.classList.contains('visible')) {
+      this.initUVEditor();
+    }
   }
   
   handleViewportClick(event) {
@@ -263,8 +269,10 @@ class VoidApp {
     const [rx, ry, rz] = obj.transform.rotation;
     const [sx, sy, sz] = obj.transform.scale;
     
-    obj.faceTextures.forEach((textureId, faceIndex) => {
-      const texture = this.getTexture(textureId);
+    obj.faceTextures.forEach((faceData, faceIndex) => {
+      if (!faceData || !faceData.textureId) return;
+      
+      const texture = this.getTexture(faceData.textureId, true);
       if (!texture) return;
       
       // Create geometry for just this face
@@ -294,6 +302,16 @@ class VoidApp {
         map: texture,
         side: THREE.DoubleSide
       });
+      
+      // Apply texture transform
+      if (faceData.transform) {
+        const tt = faceData.transform;
+        texture.repeat.set(tt.repeatX || 1, tt.repeatY || 1);
+        texture.offset.set(tt.offsetX || 0, tt.offsetY || 0);
+        if (tt.rotation) {
+          texture.rotation = tt.rotation * (Math.PI / 180);
+        }
+      }
       
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(px, py, pz);
@@ -511,12 +529,28 @@ class VoidApp {
       emissiveIntensity: emissiveIntensity
     });
     
+    // Apply texture transform if present
+    if (map && obj.textureTransform) {
+      const tt = obj.textureTransform;
+      map.repeat.set(tt.repeatX || 1, tt.repeatY || 1);
+      map.offset.set(tt.offsetX || 0, tt.offsetY || 0);
+      if (tt.rotation) {
+        map.rotation = tt.rotation * (Math.PI / 180);
+      }
+    }
+    
     return material;
   }
   
-  getTexture(textureId) {
-    if (this.textureCache.has(textureId)) {
+  getTexture(textureId, clone = false) {
+    const cacheKey = clone ? `${textureId}_clone_${Date.now()}` : textureId;
+    
+    if (!clone && this.textureCache.has(textureId)) {
       return this.textureCache.get(textureId);
+    }
+    
+    if (clone && this.textureCloneCache && this.textureCloneCache.has(textureId)) {
+      return this.textureCloneCache.get(textureId).clone();
     }
     
     const texture = store.getTexture(textureId);
@@ -528,8 +562,15 @@ class VoidApp {
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
     tex.needsUpdate = true;
-    this.textureCache.set(textureId, tex);
-    return tex;
+    
+    if (!clone) {
+      this.textureCache.set(textureId, tex);
+    } else {
+      if (!this.textureCloneCache) this.textureCloneCache = new Map();
+      this.textureCloneCache.set(textureId, tex);
+    }
+    
+    return clone ? tex.clone() : tex;
   }
   
   createThreeGeometry(geometryData) {
@@ -555,6 +596,13 @@ class VoidApp {
   initVim() {
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT') return;
+      
+      // Handle UV editor keys if visible
+      const uvEditor = document.getElementById('uv-editor');
+      if (uvEditor && uvEditor.classList.contains('visible')) {
+        this.handleUVMode(e);
+        return;
+      }
       
       switch (this.mode) {
         case 'normal':
@@ -591,8 +639,8 @@ class VoidApp {
       case 'e': this.setMode('edge'); break;
       case 'f': this.setMode('face'); break;
       case 'd': this.deleteSelected(); break;
-      case 'u': this.undo(); break;
-      case 'r': if (e.ctrlKey) this.redo(); break;
+      case 'u': (e.ctrlKey) ? this.toggleUVEditor() : this.undo(); break;
+      case 'U': this.redo(); break;
       case '/': this.commandInput.focus(); break;
       case '1': this.createObject('cube'); break;
       case '2': this.createObject('sphere'); break;
@@ -831,6 +879,52 @@ class VoidApp {
     });
   }
   
+  handleUVMode(e) {
+    if (e.key === 'Escape') {
+      this.toggleUVEditor();
+      return;
+    }
+    
+    const editingUvIds = store.getState().editingUvIds;
+    if (editingUvIds.length === 0) return;
+    
+    const selected = store.getSelectedObjects();
+    if (selected.length === 0) return;
+    
+    const obj = selected[0];
+    
+    let amount = e.shiftKey ? 0.01 : 0.05;
+    if (e.altKey) amount = 0.001;
+    
+    editingUvIds.forEach(key => {
+      const [objectId, uvIndexStr] = key.split(':');
+      const uvIndex = parseInt(uvIndexStr);
+      
+      if (objectId !== obj.id) return;
+      
+      const currentObj = store.getObject(objectId);
+      if (!currentObj || !currentObj.geometry || !currentObj.geometry.uvs) return;
+      
+      const uvs = currentObj.geometry.uvs;
+      let u = uvs[uvIndex * 2];
+      let v = uvs[uvIndex * 2 + 1];
+      
+      switch (e.key) {
+        case 'h': u -= amount; break;
+        case 'l': u += amount; break;
+        case 'j': v -= amount; break;
+        case 'k': v += amount;
+      }
+      
+      if (u < 0) u = 0;
+      if (u > 1) u = 1;
+      if (v < 0) v = 0;
+      if (v > 1) v = 1;
+      
+      store.setUvPosition(objectId, uvIndex, u, v);
+    });
+  }
+  
   setMode(mode) {
     const oldMode = this.mode;
     this.mode = mode;
@@ -923,7 +1017,65 @@ class VoidApp {
     
     const { position, rotation, scale } = obj.transform;
     const textures = store.getTextures();
-    const currentTextureId = obj.textureId || '';
+    const editingFaceIds = store.getState().editingFaceIds;
+    const isFaceMode = this.mode === 'face' && editingFaceIds.length > 0;
+    
+    let currentTextureId = '';
+    let tt = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+    let textureTitle = 'Texture';
+    let selectedFaceCount = 0;
+    
+    if (isFaceMode) {
+      selectedFaceCount = editingFaceIds.length;
+      const faceTextureIds = new Set();
+      const faceTransforms = [];
+      
+      editingFaceIds.forEach(faceKey => {
+        const [, faceIndexStr] = faceKey.split(':');
+        const faceIndex = parseInt(faceIndexStr);
+        const faceData = obj.faceTextures?.get(faceIndex);
+        if (faceData?.textureId) {
+          faceTextureIds.add(faceData.textureId);
+          if (faceData.transform) {
+            faceTransforms.push(faceData.transform);
+          }
+        }
+      });
+      
+      const hasMixedTextures = faceTextureIds.size !== selectedFaceCount || faceTextureIds.size > 1;
+      
+      if (hasMixedTextures) {
+        currentTextureId = '---';
+        tt = { repeatX: '---', repeatY: '---', offsetX: '---', offsetY: '---', rotation: '---' };
+      } else if (faceTextureIds.size === 1) {
+        currentTextureId = Array.from(faceTextureIds)[0];
+        if (faceTransforms.length > 0) {
+          const first = faceTransforms[0];
+          const allSame = faceTransforms.every(t => 
+            t.repeatX === first.repeatX && 
+            t.repeatY === first.repeatY && 
+            t.offsetX === first.offsetX && 
+            t.offsetY === first.offsetY && 
+            t.rotation === first.rotation
+          );
+          tt = allSame ? first : { repeatX: '---', repeatY: '---', offsetX: '---', offsetY: '---', rotation: '---' };
+        } else {
+          tt = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+        }
+      } else {
+        currentTextureId = '';
+        tt = { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+      }
+      textureTitle = `Face Texture (${selectedFaceCount} selected)`;
+    } else if (this.mode !== 'face') {
+      currentTextureId = obj.textureId || '';
+      tt = obj.textureTransform || tt;
+    } else {
+      currentTextureId = '';
+      textureTitle = 'Face Texture (no faces selected)';
+    }
+    
+    const formatValue = (v) => v === '---' ? '---' : (typeof v === 'number' ? v.toString() : '1');
     
     this.propertiesContent.innerHTML = `
       <div class="property-group">
@@ -951,7 +1103,7 @@ class VoidApp {
       </div>
       
       <div class="property-group">
-        <div class="property-group-title">Texture</div>
+        <div class="property-group-title">${textureTitle}</div>
         <div class="property-row">
           <select class="property-input" id="texture-select">
             <option value="">None</option>
@@ -960,8 +1112,31 @@ class VoidApp {
         </div>
         <div class="property-row">
           <input type="file" id="texture-import" accept=".png,.jpg,.jpeg,.tga,.bmp,.gif" style="display: none">
-          <button class="btn" id="import-texture-btn">Import Texture</button>
+          <button class="btn" id="import-texture-btn">Import</button>
         </div>
+        ${(currentTextureId && currentTextureId !== '---') || (currentTextureId === '---') || isFaceMode ? `
+        <div class="property-group-title" style="margin-top: 8px;">Texture Transform${currentTextureId === '---' ? ' (mixed values)' : ''}</div>
+        <div class="property-row">
+          <span class="property-label">Repeat X</span>
+          <input type="number" class="property-input" id="texture-repeat-x" value="${formatValue(tt.repeatX)}" step="0.1" min="0.1">
+        </div>
+        <div class="property-row">
+          <span class="property-label">Repeat Y</span>
+          <input type="number" class="property-input" id="texture-repeat-y" value="${formatValue(tt.repeatY)}" step="0.1" min="0.1">
+        </div>
+        <div class="property-row">
+          <span class="property-label">Offset X</span>
+          <input type="number" class="property-input" id="texture-offset-x" value="${formatValue(tt.offsetX)}" step="0.1">
+        </div>
+        <div class="property-row">
+          <span class="property-label">Offset Y</span>
+          <input type="number" class="property-input" id="texture-offset-y" value="${formatValue(tt.offsetY)}" step="0.1">
+        </div>
+        <div class="property-row">
+          <span class="property-label">Rotation°</span>
+          <input type="number" class="property-input" id="texture-rotation" value="${formatValue(tt.rotation)}" step="15">
+        </div>
+        ` : ''}
       </div>
       
       <div class="object-info">
@@ -994,18 +1169,77 @@ class VoidApp {
     document.getElementById('texture-select').addEventListener('change', (e) => {
       const textureId = e.target.value;
       
-      if (this.mode === 'face') {
-        const editingFaceIds = store.getState().editingFaceIds;
-        if (editingFaceIds.length > 0) {
-          const faceKey = editingFaceIds[0];
+      if (isFaceMode) {
+        editingFaceIds.forEach(faceKey => {
           const [, faceIndexStr] = faceKey.split(':');
           const faceIndex = parseInt(faceIndexStr);
           store.setFaceTexture(obj.id, faceIndex, textureId || null);
-        }
+        });
       } else {
         store.setObjectTexture(obj.id, textureId || null);
       }
     });
+    
+    // Texture transform listeners
+    const repeatXInput = document.getElementById('texture-repeat-x');
+    const repeatYInput = document.getElementById('texture-repeat-y');
+    const offsetXInput = document.getElementById('texture-offset-x');
+    const offsetYInput = document.getElementById('texture-offset-y');
+    const rotationInput = document.getElementById('texture-rotation');
+    
+    const updateTextureTransform = () => {
+      if (!repeatXInput) return;
+      
+      const val = repeatXInput.value;
+      
+      if (isFaceMode) {
+        const parseVal = (v) => {
+          if (v === '---' || v === '') return null;
+          const n = parseFloat(v);
+          return isNaN(n) ? null : n;
+        };
+        
+        const newRepeatX = parseVal(repeatXInput.value);
+        const newRepeatY = parseVal(repeatYInput.value);
+        const newOffsetX = parseVal(offsetXInput.value);
+        const newOffsetY = parseVal(offsetYInput.value);
+        const newRotation = parseVal(rotationInput.value);
+        
+        if (newRepeatX === null && newRepeatY === null && newOffsetX === null && newOffsetY === null && newRotation === null) return;
+        
+        editingFaceIds.forEach(faceKey => {
+          const [, faceIndexStr] = faceKey.split(':');
+          const faceIndex = parseInt(faceIndexStr);
+          const existingData = obj.faceTextures?.get(faceIndex);
+          const existingTransform = existingData?.transform || { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0, rotation: 0 };
+          
+          const transform = {
+            repeatX: newRepeatX ?? existingTransform.repeatX,
+            repeatY: newRepeatY ?? existingTransform.repeatY,
+            offsetX: newOffsetX ?? existingTransform.offsetX,
+            offsetY: newOffsetY ?? existingTransform.offsetY,
+            rotation: newRotation ?? existingTransform.rotation
+          };
+          store.setFaceTextureTransform(obj.id, faceIndex, transform);
+        });
+      } else {
+        store.setObjectTextureTransform(obj.id, {
+          repeatX: parseFloat(repeatXInput.value) || 1,
+          repeatY: parseFloat(repeatYInput.value) || 1,
+          offsetX: parseFloat(offsetXInput.value) || 0,
+          offsetY: parseFloat(offsetYInput.value) || 0,
+          rotation: parseFloat(rotationInput.value) || 0
+        });
+      }
+    };
+    
+    if (repeatXInput) {
+      repeatXInput.addEventListener('change', updateTextureTransform);
+      repeatYInput.addEventListener('change', updateTextureTransform);
+      offsetXInput.addEventListener('change', updateTextureTransform);
+      offsetYInput.addEventListener('change', updateTextureTransform);
+      rotationInput.addEventListener('change', updateTextureTransform);
+    }
     
     const inputs = this.propertiesContent.querySelectorAll('input[data-prop]');
     inputs.forEach(input => {
@@ -1118,6 +1352,132 @@ class VoidApp {
       window.electron.onMenuDelete(() => this.deleteSelected());
       window.electron.onMenuResetCamera(() => this.sceneManager.resetCamera());
       window.electron.onMenuToggleGrid(() => this.sceneManager.toggleGrid());
+    }
+  }
+  
+  toggleUVEditor() {
+    const uvEditor = document.getElementById('uv-editor');
+    if (uvEditor.classList.contains('visible')) {
+      uvEditor.classList.remove('visible');
+    } else {
+      uvEditor.classList.add('visible');
+      this.initUVEditor();
+    }
+  }
+  
+  initUVEditor() {
+    const canvas = document.getElementById('uv-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = 280;
+    canvas.height = 200;
+    
+    const selected = store.getSelectedObjects();
+    if (selected.length === 0) {
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('Select an object', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+    
+    const obj = selected[0];
+    if (!obj.geometry || !obj.geometry.uvs) {
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('No UV data', canvas.width / 2, canvas.height / 2);
+      return;
+    }
+    
+    this.renderUVEditor(ctx, canvas.width, canvas.height, obj);
+    
+    canvas.onclick = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const uvs = obj.geometry.uvs;
+      const uScale = canvas.width;
+      const vScale = canvas.height;
+      
+      let closestIdx = -1;
+      let closestDist = 10;
+      
+      for (let i = 0; i < uvs.length; i += 2) {
+        const uvX = uvs[i] * uScale;
+        const uvY = (1 - uvs[i + 1]) * vScale;
+        const dist = Math.sqrt((x - uvX) ** 2 + (y - uvY) ** 2);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i / 2;
+        }
+      }
+      
+      if (closestIdx >= 0) {
+        if (e.shiftKey) {
+          store.toggleUvSelection(obj.id, closestIdx);
+        } else {
+          store.selectUv(obj.id, closestIdx);
+        }
+      }
+    };
+  }
+  
+  renderUVEditor(ctx, width, height, obj) {
+    const uvs = obj.geometry.uvs;
+    const faces = obj.geometry.faces;
+    const editingUvIds = store.getState().editingUvIds;
+    
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, width, height);
+    
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const pos = (i / 4) * width;
+      ctx.beginPath();
+      ctx.moveTo(pos, 0);
+      ctx.lineTo(pos, height);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, pos);
+      ctx.lineTo(width, pos);
+      ctx.stroke();
+    }
+    
+    ctx.strokeStyle = '#58a6ff';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < faces.length; i += 3) {
+      const a = faces[i];
+      const b = faces[i + 1];
+      const c = faces[i + 2];
+      
+      const au = uvs[a * 2] * width;
+      const av = (1 - uvs[a * 2 + 1]) * height;
+      const bu = uvs[b * 2] * width;
+      const bv = (1 - uvs[b * 2 + 1]) * height;
+      const cu = uvs[c * 2] * width;
+      const cv = (1 - uvs[c * 2 + 1]) * height;
+      
+      ctx.beginPath();
+      ctx.moveTo(au, av);
+      ctx.lineTo(bu, bv);
+      ctx.lineTo(cu, cv);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    
+    for (let i = 0; i < uvs.length; i += 2) {
+      const uvIndex = i / 2;
+      const x = uvs[i] * width;
+      const y = (1 - uvs[i + 1]) * height;
+      const isSelected = editingUvIds.includes(`${obj.id}:${uvIndex}`);
+      
+      ctx.fillStyle = isSelected ? '#f0c644' : '#58a6ff';
+      ctx.beginPath();
+      ctx.arc(x, y, isSelected ? 5 : 3, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }
