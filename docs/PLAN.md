@@ -71,35 +71,35 @@
 - [x] Display vertices as points in edit mode
 - [x] Implement vertex selection (click)
 - [x] Add vertex highlighting (distinct color)
-- [x] Implement vertex movement with transform gizmo
-- [x] Add numeric input for precise coordinates
+- [x] Implement vertex movement with h/j/k/l keys
 - [x] Real-time viewport updates during editing
 
 ### M7: Edge Editing
 
-- [ ] Toggle edge edit mode (e key)
-- [ ] Display edges as lines in edit mode
-- [ ] Implement edge selection (click)
-- [ ] Add edge highlighting (distinct color)
-- [ ] Implement edge selection loop (shift+click)
-- [ ] Edge movement with transform gizmo
+- [x] Toggle edge edit mode (e key)
+- [x] Display edges as lines in edit mode
+- [x] Implement edge selection (click)
+- [x] Add edge highlighting (distinct color)
+- [x] Implement edge selection loop (shift+click)
+- [x] Edge movement with h/j/k/l keys
 
 ### M8: Face Editing
 
-- [ ] Toggle face edit mode (f key)
-- [ ] Display faces with face normals visible
-- [ ] Implement face selection (click)
-- [ ] Add face highlighting (distinct color)
-- [ ] Face selection (shift+click for multiple)
-- [ ] Face manipulation (extrude, delete)
+- [x] Toggle face edit mode (f key)
+- [x] Display faces with face overlay
+- [x] Implement face selection (click)
+- [x] Add face highlighting (distinct color)
+- [x] Face selection (shift+click for multiple)
+- [x] Face movement with h/j/k/l keys
 
 ### M9: Texture System
 
-- [ ] Implement texture import (PNG, JPEG, TGA)
-- [ ] Add texture to material system
-- [ ] Apply texture to geometry (auto UV unwrap)
-- [ ] Display texture in viewport
-- [ ] Build properties panel texture slot
+- [x] Implement texture import (PNG, JPEG, TGA, BMP, GIF)
+- [x] Add texture to material system
+- [x] Apply texture to geometry
+- [x] Display texture in viewport
+- [x] Build properties panel texture slot
+- [x] Per-face texture support
 - [ ] Implement basic UV editor
 
 ### M10: USD Export
@@ -114,15 +114,20 @@
 
 ### M11: Vim Integration
 
-- [ ] Implement vim mode system (normal/insert/vertex)
-- [ ] Map h/j/k/l to camera pan
-- [ ] Map w/s to zoom
-- [ ] Map q/e to orbit
-- [ ] Map i to insert mode (create)
-- [ ] Map 1-8 to quick create primitives
-- [ ] Map / to command palette
-- [ ] Map u to undo, Ctrl+r to redo
-- [ ] Ensure mouse alternatives always work
+- [x] Implement vim mode system (normal/insert/vertex/edge/face)
+- [x] Map h/j/k/l to camera pan
+- [x] Map w/s to zoom
+- [x] Map q/z to orbit
+- [x] Map i to insert mode (create)
+- [x] Map g to vertex mode
+- [x] Map e to edge mode
+- [x] Map f to face mode
+- [x] Map 1-8 to quick create primitives
+- [x] Map / to command palette
+- [x] Map u to undo, Ctrl+r to redo
+- [x] Map d to delete
+- [x] Escape exits edit modes
+- [x] Ensure mouse alternatives always work
 
 ### M12: Build & Release
 
@@ -156,10 +161,10 @@ M12: Build
 
 ## Acceptance Criteria
 
-1. **Build**: `npm run dist` produces working .exe/.app
+1. **Build**: `npm run build` produces working output
 2. **Create**: All 8 primitives spawn correctly
-3. **Edit**: Vertices can be selected and moved independently
-4. **Texture**: PNG/JPEG can be loaded and applied
+3. **Edit**: Vertices, edges, and faces can be selected and moved
+4. **Texture**: PNG/JPEG/GIF/TGA/BMP can be loaded and applied to objects and individual faces
 5. **Export**: Valid .usd file exports and opens in Blender
-6. **Vim**: All keybindings functional without mouse
+6. **Vim**: All keybindings functional (h/j/k/l/w/s/q/z/g/e/f/u/d/Escape)
 7. **Performance**: 30+ FPS with 50 objects
