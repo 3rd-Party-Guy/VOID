@@ -2,6 +2,7 @@
   "name": "void",
   "version": "0.1.0",
   "description": "VOID - Vertex Object Interactive Designer - A 3D World Editor",
+  "homepage": "https://3rd-party-guy.github.io/VOID/",
   "main": "src/main/index.js",
   "scripts": {
     "dev": "vite",
@@ -9,7 +10,8 @@
     "electron": "electron . --no-sandbox --disable-gpu-sandbox",
     "dist": "vite build && electron-builder",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:web": "npm run build && gh-pages -d dist"
   },
   "keywords": [
     "3d",
@@ -23,6 +25,7 @@
     "canvas": "^3.2.1",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
+    "gh-pages": "^6.0.0",
     "jsdom": "^29.0.0",
     "vite": "^5.0.0",
     "vitest": "^4.1.0"
@@ -40,6 +43,34 @@
       "dist/**/*",
       "src/main/**/*",
       "src/preload/**/*"
-    ]
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.graphics-design"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": null
   }
 }

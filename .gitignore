@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+release/
 
 # Logs
 *.log
@@ -24,3 +25,6 @@ coverage/
 # Temp files
 *.tmp
 *.temp
+
+# gh-pages branch (for web deployment)
+cache/

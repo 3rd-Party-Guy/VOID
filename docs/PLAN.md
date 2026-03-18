@@ -108,20 +108,22 @@
 
 ### M10: USD Export
 
-- [ ] Implement USDA format writer
-- [ ] Export geometry (vertices, faces, normals)
-- [ ] Export transforms (position, rotation, scale)
-- [ ] Export UV coordinates
-- [ ] Export materials as USD Preview Surface
-- [ ] Implement file save dialog (Electron)
-- [ ] Export to .usd format
+- [x] Implement USDA format writer
+- [x] Export geometry (vertices, faces, normals)
+- [x] Export transforms (position, rotation, scale)
+- [x] Export UV coordinates
+- [x] Export materials as USD Preview Surface
+- [x] Implement file download (browser blob)
+- [x] Export to .usda format
 
 ### M11: Vim Integration
 
 - [x] Implement vim mode system (normal/insert/vertex/edge/face)
-- [x] Map h/j/k/l to camera pan
+- [x] Map h/j/k/l to camera pan (XZ plane)
+- [x] Map H/J to camera pan up/down (Y axis)
 - [x] Map w/s to zoom
-- [x] Map q/e to orbit
+- [x] Map q/e to orbit left/right
+- [x] Map Q/E to orbit up/down
 - [x] Map i to insert mode (create)
 - [x] Map g to vertex mode
 - [x] Map z to edge mode
@@ -142,46 +144,46 @@
 
 ### M13: Object Hierarchy
 
-- [ ] Add parentId field to object structure in store.js
-- [ ] Add children array to object structure
-- [ ] Implement setObjectParent(objectId, parentId) method
-- [ ] Implement getObjectChildren(objectId) method
-- [ ] Update scene hierarchy panel to show tree structure
-- [ ] Apply parent transforms to children in rendering
-- [ ] Implement material inheritance (child inherits parent material if none assigned)
-- [ ] Add parent property in properties panel
+- [x] Add parentId field to object structure in store.js
+- [x] Add children array to object structure
+- [x] Implement setObjectParent(objectId, parentId) method
+- [x] Implement getObjectChildren(objectId) method
+- [x] Update scene hierarchy panel to show tree structure
+- [x] Apply parent transforms to children in rendering
+- [x] Implement material inheritance (child inherits parent material if none assigned)
+- [x] Add parent property in properties panel
 
 ### M14: USD Import
 
-- [ ] Add USDImporter class in usd.js
-- [ ] Implement USDA (ASCII) parser
-- [ ] Implement USDC/USDZ loading via Three.js USDLoader
-- [ ] Convert Three.js meshes to VOID geometry format
-- [ ] Preserve parent-child hierarchy from USD
-- [ ] Add "Import USD..." to File menu
-- [ ] Handle unsupported features gracefully (skip silently)
-- [ ] Show progress for large files
+- [x] Add USDImporter class in usd.js
+- [x] Implement USDA (ASCII) parser
+- [x] Implement USDC/USDZ loading via Three.js USDLoader
+- [x] Convert Three.js meshes to VOID geometry format
+- [x] Preserve parent-child hierarchy from USD
+- [x] Add "Import USD..." to File menu
+- [x] Handle unsupported features gracefully (skip silently)
 
 ### M15: Skybox Support
 
-- [ ] Add skybox state to store.js
-- [ ] Add SceneManager.setSkybox() method
-- [ ] Support equirectangular texture loading
-- [ ] Support cube texture (6 images) loading
-- [ ] Support HDR texture loading via RGBELoader
-- [ ] Set scene.background and scene.environment
-- [ ] Add Skybox section to View menu
-- [ ] Add clear skybox option
+- [x] Add skybox state to store.js
+- [x] Add SceneManager.setSkybox() method
+- [x] Support equirectangular texture loading
+- [x] Support cube texture (6 images) loading
+- [x] Support HDR texture loading via RGBELoader
+- [x] Set scene.background and scene.environment
+- [x] Add Skybox section to View menu
+- [x] Add clear skybox option
 
 ### M16: Camera Anchor
 
-- [ ] Add cameraAnchor to global state in store.js
-- [ ] Initialize cameraAnchor at [0, 0, 0]
-- [ ] Track camera position updates in SceneManager
-- [ ] Update anchor on pan/orbit/zoom camera movements
-- [ ] Set anchor to object center on selection
-- [ ] Spawn new objects at cameraAnchor position
-- [ ] Display anchor coordinates in status bar
+- [x] Add cameraAnchor to global state in store.js
+- [x] Initialize cameraAnchor at [0, 0, 0]
+- [x] Track camera position updates in SceneManager
+- [x] Update anchor on pan camera movements only
+- [x] Orbit/zoom do not change anchor
+- [x] Set anchor to object center on selection
+- [x] Spawn new objects at cameraAnchor position
+- [x] Display anchor coordinates in status bar
 
 ---
 
@@ -217,10 +219,10 @@ M16: Camera anchor
 2. **Create**: All 8 primitives spawn correctly
 3. **Edit**: Vertices, edges, and faces can be selected and moved
 4. **Texture**: PNG/JPEG/GIF/TGA/BMP can be loaded and applied to objects and individual faces
-5. **Export**: Valid .usd file exports and opens in Blender
+5. **Export**: Valid .usda file exports
 6. **Import**: Valid .usd/.usdc/.usdz files import with hierarchy preserved
 7. **Skybox**: Equirectangular, cube, and HDR backgrounds load and display
-8. **Anchor**: Camera anchor updates on move/select, objects spawn at anchor
+8. **Anchor**: Camera anchor updates on pan only, objects spawn at anchor
 9. **Hierarchy**: Parent-child relationships work with transform inheritance
-10. **Vim**: All keybindings functional (h/j/k/l/w/s/q/z/g/e/f/u/d/Escape)
+10. **Vim**: All keybindings functional (h/j/k/l/H/J/w/s/q/e/Q/E/g/z/f/u/d/Escape)
 11. **Performance**: 30+ FPS with 50 objects
