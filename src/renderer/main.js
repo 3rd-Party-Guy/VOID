@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { createGeometry, GeometryTypes } from './core/geometry.js';
 import { store } from './core/store.js';
-import { usdImporter } from './core/usd.js';
+import { usdImporter, usdExporter } from './core/usd.js';
 import { SceneManager } from './three/scene.js';
 
 class VoidApp {
@@ -1448,7 +1448,6 @@ class VoidApp {
       return;
     }
     
-    const { usdExporter } = require('./core/usd.js');
     const content = usdExporter.exportScene(objects);
     
     const blob = new Blob([content], { type: 'text/plain' });

@@ -211,3 +211,48 @@ describe('USDExporter', () => {
     });
   });
 });
+
+describe('USDExporter with Hierarchy', () => {
+  let exporter;
+  
+  beforeEach(() => {
+    exporter = new USDExporter();
+  });
+  
+  test('exports objects with parentId in metadata', () => {
+    const objects = [
+      {
+        id: 'parent-1',
+        name: 'Parent',
+        parentId: null,
+        transform: { position: [0, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        geometry: {
+          vertices: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0]),
+          faces: new Uint16Array([0, 1, 2]),
+          vertexCount: 3,
+          faceCount: 1
+        },
+        material: null
+      },
+      {
+        id: 'child-1',
+        name: 'Child',
+        parentId: 'parent-1',
+        transform: { position: [1, 0, 0], rotation: [0, 0, 0], scale: [1, 1, 1] },
+        geometry: {
+          vertices: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0]),
+          faces: new Uint16Array([0, 1, 2]),
+          vertexCount: 3,
+          faceCount: 1
+        },
+        material: null
+      }
+    ];
+    
+    const output = exporter.exportScene(objects);
+    
+    expect(output).toContain('def "World"');
+    expect(output).toContain('def Xform "Parent_Xform"');
+    expect(output).toContain('def Xform "Child_Xform"');
+  });
+});
