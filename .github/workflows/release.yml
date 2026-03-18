@@ -104,17 +104,33 @@ jobs:
       - name: Build web app
         run: npm run build
 
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
-          folder: dist
+          path: dist
+
+  # ============================================
+  # Deploy to GitHub Pages
+  # ============================================
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: build-web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   # ============================================
   # Create Release
   # ============================================
   create-release:
     name: Create Release
-    needs: [build-windows, build-linux, build-web]
+    needs: [build-windows, build-linux, deploy-pages]
     runs-on: ubuntu-latest
     
     steps:
