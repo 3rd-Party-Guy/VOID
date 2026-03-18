@@ -855,7 +855,21 @@ class VoidApp {
       const textureId = store.addTexture(file.name, e.target.result);
       const selected = store.getSelectedObjects();
       if (selected.length > 0) {
-        store.setObjectTexture(selected[0].id, textureId);
+        const obj = selected[0];
+        // If in face mode with a selected face, apply to that face
+        if (this.mode === 'face') {
+          const editingFaceIds = store.getState().editingFaceIds;
+          if (editingFaceIds.length > 0) {
+            const faceKey = editingFaceIds[0];
+            const [, faceIndexStr] = faceKey.split(':');
+            const faceIndex = parseInt(faceIndexStr);
+            store.setFaceTexture(obj.id, faceIndex, textureId);
+          } else {
+            store.setObjectTexture(obj.id, textureId);
+          }
+        } else {
+          store.setObjectTexture(obj.id, textureId);
+        }
       }
       this.updateProperties();
     };
