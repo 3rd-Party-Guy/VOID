@@ -102,9 +102,15 @@ const state = {
   version: '0.1.0',
   scene: {
     objects: Map<string, SceneObject>,  // id -> object
-    selectedIds: Set<string>,           // Currently selected
-    editingVertexIds: Set<string>,       // In vertex edit mode
+    selectedIds: Set<string>,            // Currently selected
+    editingVertexIds: Set<string>,      // In vertex edit mode
   },
+  skybox: {
+    type: 'equirectangular' | 'cube' | 'hdr' | null,
+    paths: string | string[],           // Single path or array of 6 cube faces
+    loaded: boolean,
+  },
+  cameraAnchor: [x, y, z],              // Spawn position, updates on camera move/select
   ui: {
     activePanel: 'viewport' | 'tree' | 'properties',
     mode: 'object' | 'vertex',
@@ -142,7 +148,7 @@ const sceneObject = {
   geometry: {
     vertices: Float32Array,      // Flat array [x,y,z, x,y,z, ...]
     faces: Uint16Array,         // Triangle indices [i0,i1,i2, ...]
-    normals: Float32Array,       // Optional, computed if absent
+    normals: Float32Array,      // Optional, computed if absent
     uvs: Float32Array | null,   // UV coordinates [u,v, ...]
   },
   
@@ -150,10 +156,16 @@ const sceneObject = {
   material: {
     name: string,
     diffuseTexture: string | null,   // File path
-    diffuseColor: [r, g, b],          // Default: [0.8, 0.8, 0.8]
-    opacity: number,                  // Default: 1.0
+    diffuseColor: [r, g, b],         // Default: [0.8, 0.8, 0.8]
+    opacity: number,                 // Default: 1.0
   },
+
+  // Hierarchy
+  parentId: string | null,      // Parent object ID (null = root)
 };
+
+// Computed (not stored, derived from parentId)
+const derivedChildren = [];      // Array of child object IDs
 ```
 
 ### 3.3 Vertex Data Structure
@@ -188,6 +200,22 @@ class Store {
   setObjectTransform(id, transform);
   setVertexPosition(objectId, vertexIndex, position);
   setMaterial(id, material);
+  
+  // Hierarchy
+  setObjectParent(objectId, parentId);
+  getObjectChildren(objectId);
+  getObjectDescendants(objectId);
+  getObjectParent(objectId);
+  flattenObjects();  // Get all objects in flat list for rendering
+  
+  // Skybox
+  setSkybox(type, paths);
+  clearSkybox();
+  getSkybox();
+  
+  // Camera Anchor
+  getCameraAnchor();
+  setCameraAnchor([x, y, z]);
   
   // Selection
   selectObject(id);
@@ -248,7 +276,33 @@ const USDExporter = {
   // Write to file (via IPC)
   writeFile(path, contents);
 };
-```
+
+const USDImporter = {
+  // Import USD file
+  importFile(filePath) → Promise<ImportResult>;
+  
+  // Parse USDA text format
+  parseUSDA(contents) → SceneData;
+  
+  // Load USDC/USDZ via Three.js
+  loadViaThreeJS(filePath) → Promise<THREE.Group>;
+  
+  // Convert Three.js mesh to VOID geometry
+  convertMeshToGeometry(threeMesh) → GeometryData;
+  
+  // Extract hierarchy from Three.js scene
+  extractHierarchy(threeGroup) → ParentChildMap;
+  
+  // Result structure
+  /*
+    {
+      objects: SceneObject[],
+      hierarchy: Map<string, string>,  // childId -> parentId
+      materials: Material[],
+      errors: string[],  // Warnings about skipped features
+    }
+  */
+};
 
 ### 4.4 Three.js Scene Manager
 
@@ -267,6 +321,9 @@ class SceneManager {
   removeObject(id);
   updateObject(id, changes);
   
+  // Hierarchy
+  updateObjectHierarchy();  // Apply parent transforms to children
+  
   // Selection rendering
   setOutline(objectIds);
   showVertexPoints(objectId, visible);
@@ -275,6 +332,12 @@ class SceneManager {
   // Camera
   setCamera(position, target);
   getCamera();
+  getCameraPosition() → [x, y, z];
+  getCameraTarget() → [x, y, z];
+  
+  // Skybox
+  setSkybox(type, paths) → Promise;
+  clearSkybox();
   
   // Raycasting
   raycastObject(x, y) → hitResult;
@@ -588,9 +651,189 @@ void/
 
 ---
 
-## 11. Future Considerations (Out of Scope)
+## 11. USD Import Implementation
 
-- USD import capability
+### 11.1 USDA Parser (Text Format)
+
+USDA is human-readable and can be parsed manually:
+
+```python
+# Example USDA structure
+def "Cube_001" (
+    kind = "component"
+)
+{
+    def Xform "Cube_001_Xform"
+    {
+        double3 xformOp:translate = (0, 0, 0)
+        double3 xformOp:rotateXYZ = (0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        
+        def Mesh "Mesh"
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 2, 3, ...]
+            point3f[] points = [(x,y,z), ...]
+            normal3f[] normals = [(0,0,1), ...]
+            texcoord2f[] primvars:st = [(u,v), ...]
+            
+            def Material "Material" { ... }
+        }
+    }
+}
+```
+
+**Parser Approach:**
+1. Read file as text
+2. Find all `def Xform` blocks (objects)
+3. Extract `xformOp:translate`, `xformOp:rotateXYZ`, `xformOp:scale`
+4. Find nested `def Mesh` blocks
+5. Extract `points`, `faceVertexCounts`, `faceVertexIndices`, `primvars:st`
+6. Build hierarchy from nested Xform relationships
+
+### 11.2 USDC/USDZ (Binary/Archive)
+
+Three.js USDLoader handles these formats:
+- Use `THREE.USDLoader` from examples/jsm/loaders/USDLoader.js
+- Load returns a `THREE.Group` with nested structure
+- Traverse the group hierarchy to extract meshes
+- Convert Three.js geometry to VOID format
+- Preserve parent-child relationships from scene graph
+
+### 11.3 Unsupported Features
+
+The following are silently skipped during import:
+
+| Feature | Handling |
+|---------|----------|
+| Particles | Skip entirely |
+| Skeletons/Skinning | Skip, import static mesh only |
+| Animations | Skip |
+| Variants | Skip, use default |
+| Instancing | Convert to individual objects |
+| Cameras | Skip |
+| Lights | Skip |
+| Non-PreviewSurface shaders | Skip material, use default |
+
+---
+
+## 12. Skybox Implementation
+
+### 12.1 Supported Formats
+
+| Format | Loader | Description |
+|--------|--------|-------------|
+| Equirectangular | THREE.TextureLoader + EquirectangularReflectionMapping | Single 360° image |
+| Cube Map | THREE.CubeTextureLoader | 6 separate images |
+| HDR | RGBELoader | High dynamic range |
+
+### 12.2 Implementation
+
+```javascript
+// Equirectangular
+const loader = new THREE.TextureLoader();
+loader.load(path, (texture) => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  scene.background = texture;
+  scene.environment = texture;
+});
+
+// Cube texture
+const cubeLoader = new THREE.CubeTextureLoader();
+scene.background = cubeLoader.load([
+  'px.jpg', 'nx.jpg',
+  'py.jpg', 'ny.jpg', 
+  'pz.jpg', 'nz.jpg'
+]);
+scene.environment = scene.background;
+
+// HDR
+const rgbeLoader = new RGBELoader();
+rgbeLoader.load(path, (texture) => {
+  texture.mapping = THREE.EquirectangularReflectionMapping;
+  scene.background = pmremGenerator.fromEquirectangular(texture).texture;
+  scene.environment = scene.background;
+});
+```
+
+### 12.3 UI Integration
+
+- View menu: "Skybox > Import Equirectangular...", "Skybox > Import Cube...", "Skybox > Clear"
+- File dialogs for image selection
+- Progress indicator for large files
+
+---
+
+## 13. Camera Anchor Implementation
+
+### 13.1 Overview
+
+The camera anchor determines where new objects spawn. It provides intuitive placement by tracking camera position and selected objects.
+
+### 13.2 Anchor Behavior
+
+| Trigger | Anchor Update |
+|---------|---------------|
+| App start | [0, 0, 0] |
+| Camera pan (h/j/k/l) | Camera position |
+| Camera orbit (q/e) | Camera position |
+| Camera zoom (w/s) | Camera position |
+| Mouse orbit/pan/zoom | Camera position |
+| Object selection | Object center |
+| Object spawn | New position becomes anchor |
+
+### 13.3 Spawn Position Calculation
+
+```javascript
+// Spawn in front of camera, at anchor position
+const getSpawnPosition = (camera, anchor) => {
+  const direction = new THREE.Vector3();
+  camera.getWorldDirection(direction);
+  
+  // Position 2 units in front of camera from anchor
+  const spawnPos = [
+    anchor[0] + direction.x * 2,
+    anchor[1] + direction.y * 2,
+    anchor[2] + direction.z * 2
+  ];
+  
+  return spawnPos;
+};
+```
+
+### 13.4 Object Center Calculation
+
+```javascript
+// Calculate center of selected object for anchor
+const getObjectCenter = (object) => {
+  const vertices = object.geometry.vertices;
+  let cx = 0, cy = 0, cz = 0;
+  
+  for (let i = 0; i < vertices.length; i += 3) {
+    cx += vertices[i];
+    cy += vertices[i + 1];
+    cz += vertices[i + 2];
+  }
+  
+  const count = vertices.length / 3;
+  return [
+    cx / count + object.transform.position[0],
+    cy / count + object.transform.position[1],
+    cz / count + object.transform.position[2]
+  ];
+};
+```
+
+### 13.5 UI Display
+
+- Status bar shows: `Anchor: (x, y, z)`
+- Updates in real-time with camera movement
+
+---
+
+## 14. Future Considerations (Out of Scope)
+
 - glTF export
 - Advanced materials (PBR)
 - Animation

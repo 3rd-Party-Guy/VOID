@@ -3,7 +3,7 @@
 ## Milestones Overview
 
 | Milestone | Description | Key Deliverables |
-|-----------|-------------|------------------|
+|-----------|-------------|-----------------|
 | **M1** | Project Initialization | Electron app runs, basic window |
 | **M2** | Core Foundation | Three.js viewport, camera, grid |
 | **M3** | Geometry System | All 8 primitives, scene tree |
@@ -16,6 +16,10 @@
 | **M10** | USD Export | USDA writer, file export |
 | **M11** | Vim Integration | All keybindings, modes |
 | **M12** | Build & Release | Packaged .exe/.app |
+| **M13** | Object Hierarchy | Parent/child relationships, tree view |
+| **M14** | USD Import | USDA/USDC/USDZ loading, hierarchy |
+| **M15** | Skybox Support | Equirectangular, cube, HDR |
+| **M16** | Camera Anchor | Spawn at anchor, anchor updates |
 
 ---
 
@@ -136,12 +140,55 @@
 - [ ] Verify .exe/.app runs standalone
 - [ ] Final acceptance testing
 
+### M13: Object Hierarchy
+
+- [ ] Add parentId field to object structure in store.js
+- [ ] Add children array to object structure
+- [ ] Implement setObjectParent(objectId, parentId) method
+- [ ] Implement getObjectChildren(objectId) method
+- [ ] Update scene hierarchy panel to show tree structure
+- [ ] Apply parent transforms to children in rendering
+- [ ] Implement material inheritance (child inherits parent material if none assigned)
+- [ ] Add parent property in properties panel
+
+### M14: USD Import
+
+- [ ] Add USDImporter class in usd.js
+- [ ] Implement USDA (ASCII) parser
+- [ ] Implement USDC/USDZ loading via Three.js USDLoader
+- [ ] Convert Three.js meshes to VOID geometry format
+- [ ] Preserve parent-child hierarchy from USD
+- [ ] Add "Import USD..." to File menu
+- [ ] Handle unsupported features gracefully (skip silently)
+- [ ] Show progress for large files
+
+### M15: Skybox Support
+
+- [ ] Add skybox state to store.js
+- [ ] Add SceneManager.setSkybox() method
+- [ ] Support equirectangular texture loading
+- [ ] Support cube texture (6 images) loading
+- [ ] Support HDR texture loading via RGBELoader
+- [ ] Set scene.background and scene.environment
+- [ ] Add Skybox section to View menu
+- [ ] Add clear skybox option
+
+### M16: Camera Anchor
+
+- [ ] Add cameraAnchor to global state in store.js
+- [ ] Initialize cameraAnchor at [0, 0, 0]
+- [ ] Track camera position updates in SceneManager
+- [ ] Update anchor on pan/orbit/zoom camera movements
+- [ ] Set anchor to object center on selection
+- [ ] Spawn new objects at cameraAnchor position
+- [ ] Display anchor coordinates in status bar
+
 ---
 
 ## Implementation Order
 
 ```
-M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9 → M10 → M11 → M12
+M1 → M2 → M3 → M4 → M5 → M6 → M7 → M8 → M9 → M10 → M11 → M12 → M13 → M14 → M15 → M16
 
 M1: Electron base
 M2: Viewport
@@ -155,6 +202,11 @@ M9: Texture system
 M10: USD export
 M11: Vim bindings
 M12: Build
+M13: Object hierarchy
+M14: USD import
+M15: Skybox
+M16: Camera anchor
+```
 ```
 
 ---
@@ -166,5 +218,9 @@ M12: Build
 3. **Edit**: Vertices, edges, and faces can be selected and moved
 4. **Texture**: PNG/JPEG/GIF/TGA/BMP can be loaded and applied to objects and individual faces
 5. **Export**: Valid .usd file exports and opens in Blender
-6. **Vim**: All keybindings functional (h/j/k/l/w/s/q/z/g/e/f/u/d/Escape)
-7. **Performance**: 30+ FPS with 50 objects
+6. **Import**: Valid .usd/.usdc/.usdz files import with hierarchy preserved
+7. **Skybox**: Equirectangular, cube, and HDR backgrounds load and display
+8. **Anchor**: Camera anchor updates on move/select, objects spawn at anchor
+9. **Hierarchy**: Parent-child relationships work with transform inheritance
+10. **Vim**: All keybindings functional (h/j/k/l/w/s/q/z/g/e/f/u/d/Escape)
+11. **Performance**: 30+ FPS with 50 objects
