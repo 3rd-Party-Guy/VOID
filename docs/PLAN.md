@@ -121,10 +121,10 @@
 - [x] Implement vim mode system (normal/insert/vertex/edge/face)
 - [x] Map h/j/k/l to camera pan
 - [x] Map w/s to zoom
-- [x] Map q/z to orbit
+- [x] Map q/e to orbit
 - [x] Map i to insert mode (create)
 - [x] Map g to vertex mode
-- [x] Map e to edge mode
+- [x] Map z to edge mode
 - [x] Map f to face mode
 - [x] Map 1-8 to quick create primitives
 - [x] Map / to command palette

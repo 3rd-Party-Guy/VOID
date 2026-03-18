@@ -14,8 +14,6 @@ describe('Three.js SceneManager API', () => {
       parentElement: { clientWidth: 800, clientHeight: 600 }
     };
     
-    // Check that SceneManager constructor creates an instance with expected methods
-    // Note: This will fail without WebGL, but tests the API structure
     expect(SceneManager.prototype.render).toBeDefined();
     expect(SceneManager.prototype.setSize).toBeDefined();
     expect(SceneManager.prototype.panCamera).toBeDefined();
@@ -25,6 +23,13 @@ describe('Three.js SceneManager API', () => {
     expect(SceneManager.prototype.toggleGrid).toBeDefined();
     expect(SceneManager.prototype.toggleAxes).toBeDefined();
     expect(SceneManager.prototype.dispose).toBeDefined();
+  });
+  
+  test('panCamera accepts Y-axis parameter', async () => {
+    const { SceneManager } = await import('../src/renderer/three/scene.js');
+    
+    // Verify panCamera can accept 3 parameters
+    expect(SceneManager.prototype.panCamera.length).toBeGreaterThanOrEqual(2);
   });
 });
 

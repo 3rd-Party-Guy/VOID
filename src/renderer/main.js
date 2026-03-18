@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { createGeometry, GeometryTypes } from './core/geometry.js';
 import { store } from './core/store.js';
+import { usdImporter } from './core/usd.js';
 import { SceneManager } from './three/scene.js';
 
 class VoidApp {
@@ -39,6 +40,23 @@ class VoidApp {
     
     this.sceneManager = new SceneManager(canvas);
     this.sceneManager.animate();
+    
+    // Set up camera anchor tracking (only updates on pan)
+    this.sceneManager.onCameraMove = () => {
+      // Calculate anchor: camera position + (forward direction * forward distance)
+      const cameraPos = this.sceneManager.getCameraPosition();
+      const cameraDir = new THREE.Vector3();
+      this.sceneManager.camera.getWorldDirection(cameraDir);
+      const forwardDist = store.getCameraForwardDistance();
+      
+      const anchor = [
+        cameraPos[0] + cameraDir.x * forwardDist,
+        cameraPos[1] + cameraDir.y * forwardDist,
+        cameraPos[2] + cameraDir.z * forwardDist
+      ];
+      store.setCameraAnchor(anchor);
+      this.updateStatusBar();
+    };
   }
   
   initUI() {
@@ -46,6 +64,7 @@ class VoidApp {
     this.sceneList = document.getElementById('scene-list');
     this.propertiesContent = document.getElementById('properties-content');
     this.statusEl = document.getElementById('status');
+    this.updateStatusBar();
     
     this.commandInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -92,6 +111,42 @@ class VoidApp {
     const selectedIds = store.getSelectedIds();
     const editingVertexIds = store.getState().editingVertexIds;
     
+    // Build a map for quick parent lookup
+    const objectMap = new Map(objects.map(obj => [obj.id, obj]));
+    
+    // Get world transform accounting for parent hierarchy
+    const getWorldTransform = (obj) => {
+      if (!obj.parentId) {
+        return { ...obj.transform };
+      }
+      
+      const parent = objectMap.get(obj.parentId);
+      if (!parent) {
+        return { ...obj.transform };
+      }
+      
+      const parentWorld = getWorldTransform(parent);
+      
+      // Combine transforms (child relative to parent)
+      return {
+        position: [
+          parentWorld.position[0] + obj.transform.position[0],
+          parentWorld.position[1] + obj.transform.position[1],
+          parentWorld.position[2] + obj.transform.position[2]
+        ],
+        rotation: [
+          parentWorld.rotation[0] + obj.transform.rotation[0],
+          parentWorld.rotation[1] + obj.transform.rotation[1],
+          parentWorld.rotation[2] + obj.transform.rotation[2]
+        ],
+        scale: [
+          parentWorld.scale[0] * obj.transform.scale[0],
+          parentWorld.scale[1] * obj.transform.scale[1],
+          parentWorld.scale[2] * obj.transform.scale[2]
+        ]
+      };
+    };
+    
     objects.forEach(obj => {
       if (!obj || !obj.id) return; // Skip undefined/null objects
       if (obj.geometry) {
@@ -100,12 +155,15 @@ class VoidApp {
         // Highlight selected objects with accent color
         const isSelected = selectedIds.includes(obj.id);
         
-        const material = this.createMaterial(obj, isSelected);
+        // Get effective material (with inheritance)
+        const effectiveMaterial = store.getEffectiveMaterial(obj.id);
+        const material = this.createMaterial(obj, isSelected, effectiveMaterial);
         const mesh = new THREE.Mesh(threeGeom, material);
         
-        const [px, py, pz] = obj.transform.position;
-        const [rx, ry, rz] = obj.transform.rotation;
-        const [sx, sy, sz] = obj.transform.scale;
+        const worldTransform = getWorldTransform(obj);
+        const [px, py, pz] = worldTransform.position;
+        const [rx, ry, rz] = worldTransform.rotation;
+        const [sx, sy, sz] = worldTransform.scale;
         
         mesh.position.set(px, py, pz);
         mesh.rotation.set(rx, ry, rz);
@@ -495,7 +553,10 @@ class VoidApp {
     this.faceMeshes.set(obj.id, mesh);
   }
   
-  createMaterial(obj, isSelected) {
+  createMaterial(obj, isSelected, effectiveMaterial = null) {
+    // Use effective material if provided (for hierarchy inheritance)
+    const mat = effectiveMaterial || obj.material || {};
+    
     let map = null;
     if (obj.textureId) {
       map = this.getTexture(obj.textureId);
@@ -506,9 +567,13 @@ class VoidApp {
     let emissive = 0x000000;
     let emissiveIntensity = 0;
     
-    // If no texture, use mode colors
+    // If no texture, use material color or mode colors
     if (!map) {
-      baseColor = isSelected ? 0x3fb950 : 0x58a6ff;
+      if (mat.diffuseColor) {
+        baseColor = new THREE.Color(mat.diffuseColor[0], mat.diffuseColor[1], mat.diffuseColor[2]).getHex();
+      } else {
+        baseColor = isSelected ? 0x3fb950 : 0x58a6ff;
+      }
       emissive = isSelected ? 0x1a4d2e : 0x000000;
       emissiveIntensity = isSelected ? 0.3 : 0;
     } else {
@@ -630,13 +695,17 @@ class VoidApp {
       case 'j': this.sceneManager.panCamera(0, -0.5); break;
       case 'k': this.sceneManager.panCamera(0, 0.5); break;
       case 'l': this.sceneManager.panCamera(0.5, 0); break;
+      case 'H': this.sceneManager.panCamera(0, 0, -0.5); break;
+      case 'J': this.sceneManager.panCamera(0, 0, 0.5); break;
       case 'w': this.sceneManager.zoomCamera(1.1); break;
       case 's': this.sceneManager.zoomCamera(0.9); break;
       case 'q': this.sceneManager.orbitCamera(0.1, 0); break;
-      case 'z': this.sceneManager.orbitCamera(-0.1, 0); break;
+      case 'e': this.sceneManager.orbitCamera(-0.1, 0); break;
+      case 'Q': this.sceneManager.orbitCamera(0, -0.1); break;
+      case 'E': this.sceneManager.orbitCamera(0, 0.1); break;
       case 'i': this.setMode('insert'); break;
       case 'g': this.setMode('vertex'); break;
-      case 'e': this.setMode('edge'); break;
+      case 'z': this.setMode('edge'); break;
       case 'f': this.setMode('face'); break;
       case 'd': this.deleteSelected(); break;
       case 'u': (e.ctrlKey) ? this.toggleUVEditor() : this.undo(); break;
@@ -929,12 +998,25 @@ class VoidApp {
     const oldMode = this.mode;
     this.mode = mode;
     const modeClass = mode === 'normal' ? 'normal' : mode === 'insert' ? 'insert' : mode === 'vertex' ? 'vertex' : mode === 'edge' ? 'edge' : 'face';
-    this.statusEl.innerHTML = `<span class="vim-mode ${modeClass}">${mode}</span>`;
+    const anchor = store.getCameraAnchor();
+    this.statusEl.innerHTML = `
+      <span class="vim-mode ${modeClass}">${mode}</span>
+      <span class="anchor">Anchor: (${anchor[0].toFixed(1)}, ${anchor[1].toFixed(1)}, ${anchor[2].toFixed(1)})</span>
+    `;
     
     // If entering vertex, edge, or face mode, refresh scene to show edit elements
     if ((mode === 'vertex' || mode === 'edge' || mode === 'face') && oldMode !== mode) {
       this.syncFromStore();
     }
+  }
+  
+  updateStatusBar() {
+    const anchor = store.getCameraAnchor();
+    const modeClass = this.mode === 'normal' ? 'normal' : this.mode === 'insert' ? 'insert' : this.mode === 'vertex' ? 'vertex' : this.mode === 'edge' ? 'edge' : 'face';
+    this.statusEl.innerHTML = `
+      <span class="vim-mode ${modeClass}">${this.mode}</span>
+      <span class="anchor">Anchor: (${anchor[0].toFixed(1)}, ${anchor[1].toFixed(1)}, ${anchor[2].toFixed(1)})</span>
+    `;
   }
   
   createObject(type) {
@@ -988,16 +1070,51 @@ class VoidApp {
     this.sceneList.innerHTML = '';
     const selectedIds = store.getSelectedIds();
     
-    objects.forEach(obj => {
-      if (!obj || !obj.id) return; // Skip undefined/null objects
+    // Build hierarchy tree
+    const getChildren = (parentId) => {
+      return objects.filter(obj => obj.parentId === parentId);
+    };
+    
+    const renderItem = (obj, depth = 0) => {
+      if (!obj || !obj.id) return;
       
       const item = document.createElement('div');
       item.className = `scene-item${selectedIds.includes(obj.id) ? ' selected' : ''}`;
-      item.textContent = obj.name;
+      item.style.paddingLeft = `${depth * 16 + 8}px`;
+      
+      // Add expand/collapse indicator if has children
+      const children = getChildren(obj.id);
+      const hasChildren = children.length > 0;
+      const prefix = hasChildren ? (depth > 0 ? '├─ ' : '┬─ ') : (depth > 0 ? '└─ ' : '');
+      item.textContent = prefix + obj.name;
+      
       item.addEventListener('click', () => {
         store.selectObject(obj.id);
+        
+        // Jump camera to look at the selected object
+        const newAnchor = store.getCameraAnchor();
+        this.sceneManager.jumpCameraToAnchor(newAnchor);
+        
+        // Update status bar
+        this.updateStatusBar();
       });
+      
       this.sceneList.appendChild(item);
+      
+      // Render children
+      children.forEach(child => renderItem(child, depth + 1));
+    };
+    
+    // Render root objects first
+    const rootObjects = objects.filter(obj => !obj.parentId);
+    rootObjects.forEach(obj => renderItem(obj, 0));
+    
+    // Also render any orphaned objects (objects whose parent doesn't exist)
+    const allParentIds = new Set(objects.map(o => o.parentId).filter(Boolean));
+    objects.forEach(obj => {
+      if (obj.parentId && !allParentIds.has(obj.id) === false && !objects.find(o => o.id === obj.parentId)) {
+        renderItem(obj, 0);
+      }
     });
   }
   
@@ -1084,6 +1201,13 @@ class VoidApp {
     
     const formatValue = (v) => v === '---' ? '---' : (typeof v === 'number' ? v.toString() : '1');
     
+    const objects = store.getObjects();
+    const parentOptions = objects
+      .filter(o => o.id !== obj.id && !store.getObjectDescendants(obj.id).includes(o.id))
+      .map(o => `<option value="${o.id}" ${o.id === obj.parentId ? 'selected' : ''}>${o.name}</option>`)
+      .join('');
+    const parentName = obj.parentId ? (store.getObject(obj.parentId)?.name || 'None') : 'None';
+    
     this.propertiesContent.innerHTML = `
       <div class="property-group">
         <div class="property-group-title">Object</div>
@@ -1095,6 +1219,18 @@ class VoidApp {
           <span class="property-label">Type</span>
           <input type="text" class="property-input" value="${obj.type}" readonly>
         </div>
+        <div class="property-row">
+          <span class="property-label">Parent</span>
+          <select class="property-input" id="parent-select">
+            <option value="">None</option>
+            ${parentOptions}
+          </select>
+        </div>
+        ${obj.parentId ? `
+        <div class="property-row">
+          <button class="btn" id="unparent-btn">Unparent</button>
+        </div>
+        ` : ''}
       </div>
       
       <div class="property-group">
@@ -1161,6 +1297,20 @@ class VoidApp {
     `;
     
     document.getElementById('delete-btn').addEventListener('click', () => this.deleteSelected());
+    
+    const parentSelect = document.getElementById('parent-select');
+    if (parentSelect) {
+      parentSelect.addEventListener('change', (e) => {
+        store.setObjectParent(obj.id, e.target.value || null);
+      });
+    }
+    
+    const unparentBtn = document.getElementById('unparent-btn');
+    if (unparentBtn) {
+      unparentBtn.addEventListener('click', () => {
+        store.setObjectParent(obj.id, null);
+      });
+    }
     
     document.getElementById('import-texture-btn').addEventListener('click', () => {
       document.getElementById('texture-import').click();
@@ -1292,7 +1442,59 @@ class VoidApp {
   }
   
   exportUSD() {
-    console.log('Export USD - not yet implemented');
+    const objects = store.getObjects();
+    if (objects.length === 0) {
+      alert('No objects to export');
+      return;
+    }
+    
+    const { usdExporter } = require('./core/usd.js');
+    const content = usdExporter.exportScene(objects);
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'scene.usda';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  
+  async importUSD() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.usd,.usda,.usdc,.usdz';
+    
+    input.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      try {
+        const result = await usdImporter.importFile(file);
+        
+        if (result.errors && result.errors.length > 0) {
+          console.warn('Import warnings:', result.errors);
+        }
+        
+        result.objects.forEach(obj => {
+          store.addObject(obj.type || 'custom', {
+            geometry: obj.geometry,
+            material: obj.material,
+            position: obj.transform?.position,
+            rotation: obj.transform?.rotation,
+            scale: obj.transform?.scale,
+            parentId: obj.parentId
+          });
+        });
+        
+        console.log(`Imported ${result.objects.length} objects`);
+      } catch (error) {
+        console.error('Failed to import USD:', error);
+        alert(`Failed to import USD: ${error.message}`);
+      }
+    });
+    
+    input.click();
   }
   
   newScene() {
@@ -1322,6 +1524,9 @@ class VoidApp {
           case 'new':
             this.newScene();
             break;
+          case 'import':
+            this.importUSD();
+            break;
           case 'export':
             this.exportUSD();
             break;
@@ -1343,6 +1548,19 @@ class VoidApp {
           case 'toggle-grid':
             this.sceneManager.toggleGrid();
             break;
+          case 'skybox-equirectangular':
+            this.importSkybox('equirectangular');
+            break;
+          case 'skybox-cube':
+            this.importSkybox('cube');
+            break;
+          case 'skybox-hdr':
+            this.importSkybox('hdr');
+            break;
+          case 'skybox-clear':
+            this.sceneManager.clearSkybox();
+            store.clearSkybox();
+            break;
           case 'about':
             alert('VOID - Vertex Object Interactive Designer\nVersion 0.1.0');
             break;
@@ -1360,6 +1578,42 @@ class VoidApp {
       window.electron.onMenuResetCamera(() => this.sceneManager.resetCamera());
       window.electron.onMenuToggleGrid(() => this.sceneManager.toggleGrid());
     }
+  }
+  
+  importSkybox(type) {
+    const acceptTypes = {
+      equirectangular: '.hdr,.jpg,.jpeg,.png,.tga',
+      cube: '.jpg,.jpeg,.png,.tga',
+      hdr: '.hdr'
+    };
+    
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = acceptTypes[type];
+    input.multiple = type === 'cube';
+    
+    input.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+      
+      if (type === 'cube') {
+        // Need 6 images for cube map
+        if (files.length !== 6) {
+          alert('Cube skybox requires exactly 6 images (px, nx, py, ny, pz, nz)');
+          return;
+        }
+        const paths = Array.from(files).map(f => URL.createObjectURL(f));
+        store.setSkybox('cube', paths);
+        await this.sceneManager.setSkybox('cube', paths);
+      } else {
+        const file = files[0];
+        const path = URL.createObjectURL(file);
+        store.setSkybox(type, path);
+        await this.sceneManager.setSkybox(type, path);
+      }
+    });
+    
+    input.click();
   }
   
   toggleUVEditor() {

@@ -12,6 +12,9 @@ export class Store {
     this.undoStack = [];
     this.redoStack = [];
     this.listeners = new Set();
+    this.cameraAnchor = [0, 0, 0]; // Spawn position for new objects
+    this.cameraForwardDistance = 8.66; // Initial distance from camera to anchor (camera at (5,5,5), anchor at (0,0,0))
+    this.skybox = null; // { type, paths, loaded }
     this.counters = {
       cube: 0,
       sphere: 0,
@@ -64,6 +67,35 @@ export class Store {
     return Array.from(this.selectedIds).map(id => this.objects.get(id)).filter(Boolean);
   }
   
+  // Camera Anchor
+  getCameraAnchor() {
+    return [...this.cameraAnchor];
+  }
+  
+  getCameraForwardDistance() {
+    return this.cameraForwardDistance;
+  }
+  
+  setCameraAnchor(position) {
+    this.cameraAnchor = [...position];
+    this.notify();
+  }
+  
+  // Skybox
+  getSkybox() {
+    return this.skybox;
+  }
+  
+  setSkybox(type, paths) {
+    this.skybox = { type, paths, loaded: false };
+    this.notify();
+  }
+  
+  clearSkybox() {
+    this.skybox = null;
+    this.notify();
+  }
+  
   // History management
   _pushUndo(action) {
     this.undoStack.push(action);
@@ -84,8 +116,9 @@ export class Store {
       id,
       name,
       type,
+      parentId: params.parentId || null,
       transform: {
-        position: params.position || [0, 0, 0],
+        position: params.position || [...this.cameraAnchor],
         rotation: params.rotation || [0, 0, 0],
         scale: params.scale || [1, 1, 1]
       },
@@ -142,6 +175,89 @@ export class Store {
     this.notify();
   }
   
+  // Hierarchy management
+  setObjectParent(objectId, parentId) {
+    const obj = this.objects.get(objectId);
+    if (!obj) return;
+    
+    // Prevent circular references
+    if (parentId && this._isDescendant(parentId, objectId)) {
+      console.warn('Cannot set parent: would create circular reference');
+      return;
+    }
+    
+    // Prevent self-parenting
+    if (parentId === objectId) {
+      console.warn('Cannot set object as its own parent');
+      return;
+    }
+    
+    const oldParentId = obj.parentId;
+    obj.parentId = parentId || null;
+    
+    this._pushUndo({
+      type: 'SET_PARENT',
+      objectId,
+      oldParentId,
+      newParentId: parentId || null
+    });
+    
+    this.notify();
+  }
+  
+  _isDescendant(potentialDescendantId, ancestorId) {
+    let current = this.objects.get(potentialDescendantId);
+    while (current) {
+      if (current.parentId === ancestorId) {
+        return true;
+      }
+      current = current.parentId ? this.objects.get(current.parentId) : null;
+    }
+    return false;
+  }
+  
+  getObjectParent(objectId) {
+    const obj = this.objects.get(objectId);
+    return obj ? obj.parentId : null;
+  }
+  
+  getObjectChildren(objectId) {
+    const children = [];
+    this.objects.forEach(obj => {
+      if (obj.parentId === objectId) {
+        children.push(obj.id);
+      }
+    });
+    return children;
+  }
+  
+  getObjectDescendants(objectId) {
+    const descendants = [];
+    const collectDescendants = (id) => {
+      const children = this.getObjectChildren(id);
+      children.forEach(childId => {
+        descendants.push(childId);
+        collectDescendants(childId);
+      });
+    };
+    collectDescendants(objectId);
+    return descendants;
+  }
+  
+  getRootObjects() {
+    const rootObjects = [];
+    this.objects.forEach(obj => {
+      if (!obj.parentId) {
+        rootObjects.push(obj.id);
+      }
+    });
+    return rootObjects;
+  }
+  
+  flattenObjects() {
+    return Array.from(this.objects.values());
+  }
+  
   setObjectTransform(id, transform) {
     const obj = this.objects.get(id);
     if (!obj) return;
@@ -193,13 +309,68 @@ export class Store {
     this.notify();
   }
   
+  getEffectiveMaterial(objectId) {
+    const obj = this.objects.get(objectId);
+    if (!obj) return null;
+    
+    // If object has its own texture, return it
+    if (obj.material && obj.material.diffuseTexture) {
+      return obj.material;
+    }
+    
+    // Otherwise, inherit from parent
+    if (obj.parentId) {
+      return this.getEffectiveMaterial(obj.parentId);
+    }
+    
+    // Return own material (either default or user-set without texture)
+    return obj.material || {
+      name: 'Default',
+      diffuseTexture: null,
+      diffuseColor: [0.8, 0.8, 0.8],
+      opacity: 1.0
+    };
+  }
+  
   // Selection
   selectObject(id) {
     this.selectedIds.clear();
     if (id) {
       this.selectedIds.add(id);
+      // Update camera anchor to object center (offset remains unchanged)
+      const obj = this.objects.get(id);
+      if (obj && obj.geometry) {
+        const center = this._calculateObjectCenter(obj);
+        this.cameraAnchor = center;
+      }
     }
     this.notify();
+  }
+  
+  _calculateObjectCenter(obj) {
+    if (!obj.geometry || !obj.geometry.vertices) {
+      return [...this.cameraAnchor];
+    }
+    
+    const vertices = obj.geometry.vertices;
+    let cx = 0, cy = 0, cz = 0;
+    const count = vertices.length / 3;
+    
+    for (let i = 0; i < vertices.length; i += 3) {
+      cx += vertices[i];
+      cy += vertices[i + 1];
+      cz += vertices[i + 2];
+    }
+    
+    if (count > 0) {
+      return [
+        cx / count + obj.transform.position[0],
+        cy / count + obj.transform.position[1],
+        cz / count + obj.transform.position[2]
+      ];
+    }
+    
+    return [...this.cameraAnchor];
   }
   
   selectVertex(objectId, vertexIndex) {

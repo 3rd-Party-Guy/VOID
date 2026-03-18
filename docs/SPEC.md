@@ -126,10 +126,12 @@
 
 **Requirements:**
 - Anchor position starts at world origin (0, 0, 0)
-- Anchor updates on every camera movement (pan, orbit, zoom)
-- When object is selected, anchor updates to object center
+- Anchor updates only when panning the camera (h/j/k/l/H/J)
+- Orbiting (q/e/Q/E) moves camera around anchor without changing anchor
+- Zooming (w/s) changes camera distance without changing anchor
+- When object is selected, anchor updates to object center, camera jumps to maintain offset
 - Current anchor position displayed in status bar
-- New objects spawn at anchor position (offset forward from camera look direction)
+- New objects spawn at anchor position
 
 ### 2.7 USD Export
 
@@ -169,9 +171,11 @@ The interface shall combine TUI aesthetics with 3D rendering:
 **Primary Mode: Vim-Style Bindings**
 | Key | Action |
 |-----|--------|
-| `h/j/k/l` | Pan camera left/down/up/right |
+| `h/j/k/l` | Pan camera left/back/forward/right (XZ plane) |
+| `H/J` | Pan camera down/up (Y axis) |
 | `w/s` | Zoom in/out |
-| `q/e` | Orbit camera |
+| `q/e` | Orbit camera left/right |
+| `Q/E` | Orbit camera up/down |
 | `g` | Enter vertex edit mode |
 | `Escape` | Exit to default mode |
 | `i` | Insert mode (create geometry) |

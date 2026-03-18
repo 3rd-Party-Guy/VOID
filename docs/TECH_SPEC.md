@@ -538,9 +538,11 @@ Show success notification
 
 | Key | Action |
 |-----|--------|
-| `h/j/k/l` | Camera pan left/down/up/right |
+| `h/j/k/l` | Camera pan left/back/forward/right (XZ plane) |
+| `H/J` | Camera pan down/up (Y axis) |
 | `w/s` | Camera zoom in/out |
-| `q/e` | Camera orbit |
+| `q/e` | Camera orbit left/right |
+| `Q/E` | Camera orbit up/down |
 | `g` | Enter vertex edit mode |
 | `i` | Enter insert mode (create) |
 | `d` | Delete selected |
@@ -775,30 +777,24 @@ The camera anchor determines where new objects spawn. It provides intuitive plac
 
 | Trigger | Anchor Update |
 |---------|---------------|
-| App start | [0, 0, 0] |
-| Camera pan (h/j/k/l) | Camera position |
-| Camera orbit (q/e) | Camera position |
-| Camera zoom (w/s) | Camera position |
-| Mouse orbit/pan/zoom | Camera position |
-| Object selection | Object center |
-| Object spawn | New position becomes anchor |
+| App start | [0, 0, 0] (orbit target) |
+| Camera pan (h/j/k/l) | Anchor moves with camera |
+| Camera orbit (q/e/Q/E) | Anchor unchanged |
+| Camera zoom (w/s) | Anchor unchanged |
+| Object selection | Anchor set to object center |
+| Object spawn | Anchor unchanged |
 
 ### 13.3 Spawn Position Calculation
 
+Objects spawn directly at the anchor position. The anchor is calculated as:
+- `anchor = camera.position + (camera.forward * forwardDistance)`
+- Where `forwardDistance` is the distance from camera to orbit target
+- Initial `forwardDistance` ≈ 8.66 (distance from camera at (5,5,5) to orbit target at (0,0,0))
+
 ```javascript
-// Spawn in front of camera, at anchor position
+// Anchor is always in front of camera at fixed distance
 const getSpawnPosition = (camera, anchor) => {
-  const direction = new THREE.Vector3();
-  camera.getWorldDirection(direction);
-  
-  // Position 2 units in front of camera from anchor
-  const spawnPos = [
-    anchor[0] + direction.x * 2,
-    anchor[1] + direction.y * 2,
-    anchor[2] + direction.z * 2
-  ];
-  
-  return spawnPos;
+  return anchor; // Objects spawn at anchor position
 };
 ```
 

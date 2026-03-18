@@ -8,7 +8,7 @@ A 3D world editor with a TUI aesthetic, built with Electron and Three.js.
 - **Selection**: Click to select objects in the viewport
 - **Edit Modes**:
   - Vertex editing (press `g`) - select and move individual vertices
-  - Edge editing (press `e`) - select and move edges
+  - Edge editing (press `z`) - select and move edges
   - Face editing (press `f`) - select faces and apply per-face textures
 - **Texture System**: Import PNG, JPG, TGA, BMP, GIF textures
 - **Vim-style Keybindings**:
