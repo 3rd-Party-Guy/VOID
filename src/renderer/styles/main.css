@@ -1,0 +1,382 @@
+:root {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --accent: #58a6ff;
+  --border: #30363d;
+  --success: #3fb950;
+  --warning: #d29922;
+  --error: #f85149;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.menu-bar {
+  height: 28px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  -webkit-app-region: drag;
+}
+
+.app-title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-right: 24px;
+}
+
+.menu-items {
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.menu-item {
+  position: relative;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.menu-item:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.menu-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  min-width: 160px;
+  z-index: 1000;
+}
+
+.menu-item:hover .menu-dropdown {
+  display: block;
+}
+
+.menu-dropdown-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.menu-dropdown-item:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.menu-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.panel {
+  width: 250px;
+  min-width: 200px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  height: 28px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.viewport {
+  flex: 1;
+  position: relative;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+#three-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.scene-tree {
+  border-left: none;
+  border-top: none;
+  border-bottom: none;
+}
+
+.scene-item {
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scene-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.scene-item.selected {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.scene-item-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+.properties {
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+}
+
+.property-group {
+  margin-bottom: 16px;
+}
+
+.property-group-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.property-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.property-label {
+  width: 20px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.property-input {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+.property-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.command-bar {
+  height: 32px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+}
+
+.command-prompt {
+  color: var(--accent);
+  font-weight: bold;
+}
+
+.command-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+}
+
+.command-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.status {
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 2px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+.empty-state {
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.object-info {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.info-label {
+  color: var(--text-secondary);
+}
+
+.info-value {
+  color: var(--text-primary);
+}
+
+.btn {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.btn:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.texture-preview {
+  width: 100%;
+  height: 100px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.texture-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.vim-mode {
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.vim-mode.normal {
+  background: var(--success);
+  color: var(--bg-primary);
+}
+
+.vim-mode.insert {
+  background: var(--warning);
+  color: var(--bg-primary);
+}
+
+.vim-mode.vertex {
+  background: var(--accent);
+  color: var(--bg-primary);
+}
+
+.vim-mode.edge {
+  background: #39d353;
+  color: var(--bg-primary);
+}
+
+.vim-mode.face {
+  background: #f78166;
+  color: var(--bg-primary);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}

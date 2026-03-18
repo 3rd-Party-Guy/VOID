@@ -1,0 +1,45 @@
+{
+  "name": "void",
+  "version": "0.1.0",
+  "description": "VOID - Vertex Object Interactive Designer - A 3D World Editor",
+  "main": "src/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron": "electron . --no-sandbox --disable-gpu-sandbox",
+    "dist": "vite build && electron-builder",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "3d",
+    "editor",
+    "usd",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "canvas": "^3.2.1",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "jsdom": "^29.0.0",
+    "vite": "^5.0.0",
+    "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "build": {
+    "appId": "com.void.editor",
+    "productName": "VOID",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "src/main/**/*",
+      "src/preload/**/*"
+    ]
+  }
+}

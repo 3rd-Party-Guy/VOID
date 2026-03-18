@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:;">
+  <title>VOID - Vertex Object Interactive Designer</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <div id="app">
+    <header class="menu-bar">
+      <span class="app-title">VOID</span>
+      <div class="menu-items">
+        <div class="menu-item" data-menu="file">
+          <span>File</span>
+          <div class="menu-dropdown">
+            <div class="menu-dropdown-item" data-action="new">New Scene</div>
+            <div class="menu-dropdown-item" data-action="export">Export USD</div>
+            <div class="menu-dropdown-divider"></div>
+            <div class="menu-dropdown-item" data-action="quit">Quit</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="edit">
+          <span>Edit</span>
+          <div class="menu-dropdown">
+            <div class="menu-dropdown-item" data-action="undo">Undo</div>
+            <div class="menu-dropdown-item" data-action="redo">Redo</div>
+            <div class="menu-dropdown-divider"></div>
+            <div class="menu-dropdown-item" data-action="delete">Delete</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="view">
+          <span>View</span>
+          <div class="menu-dropdown">
+            <div class="menu-dropdown-item" data-action="reset-camera">Reset Camera</div>
+            <div class="menu-dropdown-item" data-action="toggle-grid">Toggle Grid</div>
+          </div>
+        </div>
+        <div class="menu-item" data-menu="help">
+          <span>Help</span>
+          <div class="menu-dropdown">
+            <div class="menu-dropdown-item" data-action="about">About VOID</div>
+          </div>
+        </div>
+      </div>
+    </header>
+    
+    <div class="main-content">
+      <aside class="panel scene-tree" id="scene-tree">
+        <div class="panel-header">Scene</div>
+        <div class="panel-content" id="scene-list">
+          <div class="empty-state">No objects</div>
+        </div>
+      </aside>
+      
+      <main class="viewport" id="viewport">
+        <canvas id="three-canvas"></canvas>
+      </main>
+      
+      <aside class="panel properties" id="properties">
+        <div class="panel-header">Properties</div>
+        <div class="panel-content" id="properties-content">
+          <div class="empty-state">Select an object</div>
+        </div>
+      </aside>
+    </div>
+    
+    <footer class="command-bar">
+      <span class="command-prompt">:</span>
+      <input type="text" id="command-input" class="command-input" placeholder="Command..." autocomplete="off">
+      <span class="status" id="status">Normal Mode</span>
+    </footer>
+  </div>
+  
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
