@@ -435,3 +435,88 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
+
+.shortcuts-panel {
+  position: fixed;
+  bottom: 32px;
+  left: 0;
+  width: 280px;
+  z-index: 50;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  max-height: 250px;
+}
+
+.shortcuts-panel.minimized {
+  height: 28px;
+  max-height: 28px;
+  overflow: hidden;
+}
+
+.shortcuts-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-toggle {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.panel-toggle:hover {
+  color: var(--text-primary);
+}
+
+.shortcuts-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.shortcut-group {
+  margin-bottom: 8px;
+}
+
+.shortcut-category {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding: 4px 8px 2px;
+  letter-spacing: 0.5px;
+}
+
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.shortcut-key {
+  color: var(--accent);
+  min-width: 70px;
+  font-family: var(--font-mono);
+}
+
+.shortcut-desc {
+  color: var(--text-secondary);
+  flex: 1;
+  text-align: right;
+  padding-left: 8px;
+}
+
+.shortcuts-panel .empty-state {
+  padding: 12px;
+  font-size: 11px;
+}

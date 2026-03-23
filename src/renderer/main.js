@@ -5,6 +5,7 @@ import { createGeometry, GeometryTypes } from './core/geometry.js';
 import { store } from './core/store.js';
 import { usdImporter, usdExporter } from './core/usd.js';
 import { SceneManager } from './three/scene.js';
+import { ShortcutsPanel } from './ui/shortcuts-panel.js';
 
 class VoidApp {
   constructor() {
@@ -20,6 +21,8 @@ class VoidApp {
     this.faceTextureMeshes = [];
     this.textureLoader = new THREE.TextureLoader();
     this.textureCache = new Map();
+    this.shortcutsPanel = null;
+    this.uvEditorVisible = false;
     
     this.init();
   }
@@ -79,6 +82,9 @@ class VoidApp {
       this.handleViewportClick(e);
     });
     
+    this.shortcutsPanel = new ShortcutsPanel();
+    this.shortcutsPanel.update(this.mode, this.getShortcutsContext());
+    
     this.updateSceneList();
     this.updateProperties();
   }
@@ -86,6 +92,9 @@ class VoidApp {
   initStoreSubscription() {
     store.subscribe(() => {
       this.syncFromStore();
+      if (this.shortcutsPanel) {
+        this.shortcutsPanel.update(this.mode, this.getShortcutsContext());
+      }
     });
   }
   
@@ -1008,6 +1017,15 @@ class VoidApp {
     if ((mode === 'vertex' || mode === 'edge' || mode === 'face') && oldMode !== mode) {
       this.syncFromStore();
     }
+    
+    this.shortcutsPanel.update(mode, this.getShortcutsContext());
+  }
+  
+  getShortcutsContext() {
+    const state = store.getState();
+    const hasFaceSelected = state.editingFaceIds.length > 0;
+    const hasUvSelected = state.editingUvIds.length > 0;
+    return { hasFaceSelected, hasUvSelected, uvEditorVisible: this.uvEditorVisible };
   }
   
   updateStatusBar() {
@@ -1619,10 +1637,13 @@ class VoidApp {
     const uvEditor = document.getElementById('uv-editor');
     if (uvEditor.classList.contains('visible')) {
       uvEditor.classList.remove('visible');
+      this.uvEditorVisible = false;
     } else {
       uvEditor.classList.add('visible');
+      this.uvEditorVisible = true;
       this.initUVEditor();
     }
+    this.shortcutsPanel.update(this.mode, this.getShortcutsContext());
   }
   
   initUVEditor() {
